@@ -1,53 +1,32 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
-
-const prisma = new PrismaClient();
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 export async function POST(request: Request) {
   try {
-    const { name, email, password } = await request.json();
+    const supabase = createRouteHandlerClient({ cookies });
+    const { email, password } = await request.json();
 
-    // Validate input
-    if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
-    }
-
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'User with this email already exists' },
-        { status: 400 }
-      );
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${request.headers.get('origin')}/auth/callback`,
       },
     });
 
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json(userWithoutPassword);
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Registration error:', error);
     return NextResponse.json(
-      { error: 'Failed to create user' },
+      { error: 'Registration failed' },
       { status: 500 }
     );
   }
