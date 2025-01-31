@@ -11,7 +11,8 @@ export async function GET() {
       {
         cookies: {
           get(name: string) {
-            return cookieStore.get(name)?.value;
+            const cookie = cookieStore.get(name);
+            return cookie?.value;
           },
         },
       }
@@ -55,7 +56,8 @@ export async function POST(request: Request) {
       {
         cookies: {
           get(name: string) {
-            return cookieStore.get(name)?.value;
+            const cookie = cookieStore.get(name);
+            return cookie?.value;
           },
         },
       }

@@ -1,5 +1,5 @@
-import { MediaRecommender } from '@/components/MediaRecommender';
-import { MediaLists } from '@/components/MediaLists';
+import { MediaRecommender } from '@/app/components/MediaRecommender';
+import { MediaLists } from '@/app/components/MediaLists';
 import { Card, CardContent } from '@/components/ui/card';
 
 export default function Home() {

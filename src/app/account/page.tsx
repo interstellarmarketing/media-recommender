@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/components/providers/SupabaseProvider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { redirect } from 'next/navigation';
 
 interface MediaList {
   id: string;
@@ -14,6 +15,9 @@ interface MediaList {
   updatedAt: string;
 }
 
+// This ensures the page is only rendered on the client
+let isClient = false;
+
 export default function AccountPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
@@ -23,30 +27,43 @@ export default function AccountPage() {
   const [newListName, setNewListName] = useState('');
   const [newListDescription, setNewListDescription] = useState('');
   const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [loading, user, router]);
+    setMounted(true);
+    isClient = true;
+  }, []);
 
   useEffect(() => {
-    if (user?.id) {
-      fetchUserLists();
+    if (!loading && !user && mounted) {
+      router.replace('/login');
     }
-  }, [user?.id]);
+  }, [loading, user, router, mounted]);
 
-  const fetchUserLists = async () => {
-    try {
-      const response = await fetch('/api/lists');
-      const data = await response.json();
-      setLists(data);
-    } catch (error) {
-      console.error('Failed to fetch lists:', error);
-    } finally {
-      setLoadingLists(false);
-    }
-  };
+  useEffect(() => {
+    const fetchLists = async () => {
+      if (!user?.id || !mounted) return;
+      
+      try {
+        const response = await fetch('/api/lists', {
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
+        if (!response.ok) {
+          throw new Error('Failed to fetch lists');
+        }
+        const data = await response.json();
+        setLists(data);
+      } catch (error) {
+        console.error('Failed to fetch lists:', error);
+      } finally {
+        setLoadingLists(false);
+      }
+    };
+
+    fetchLists();
+  }, [user?.id, mounted]);
 
   const handleCreateList = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +96,12 @@ export default function AccountPage() {
     }
   };
 
+  // Don't render anything on the server
+  if (!mounted) {
+    return null;
+  }
+
+  // Show loading state
   if (loading || loadingLists) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -89,6 +112,7 @@ export default function AccountPage() {
     );
   }
 
+  // Don't render anything if not authenticated
   if (!user) {
     return null;
   }
@@ -170,7 +194,7 @@ export default function AccountPage() {
               )}
 
               {lists.length === 0 ? (
-                <p className="text-gray-500">You haven't created any lists yet.</p>
+                <p className="text-gray-500">You haven&apos;t created any lists yet.</p>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {lists.map((list) => (
@@ -183,8 +207,11 @@ export default function AccountPage() {
                           {list.description || 'No description'}
                         </p>
                         <div className="mt-2 text-sm text-gray-500">
-                          <p>{list.items.length} items</p>
-                          <p>Last updated: {new Date(list.updatedAt).toLocaleDateString()}</p>
+                          <p>{list.items?.length || 0} items</p>
+                          <p>
+                            Last updated:{' '}
+                            {new Date(list.updatedAt).toLocaleDateString()}
+                          </p>
                         </div>
                       </CardContent>
                     </Card>

@@ -1,5 +1,43 @@
 import { NextResponse } from 'next/server';
 
+interface TMDBReview {
+  content: string;
+  id: string;
+  author: string;
+}
+
+interface TMDBTranslation {
+  data?: {
+    overview?: string;
+  };
+}
+
+interface TMDBRecommendation {
+  id: string;
+  title?: string;
+  name?: string;
+  recommendations: {
+    results: TMDBRecommendation[];
+  };
+}
+
+interface MediaItem {
+  id: string;
+  patterns?: string[];
+  genres?: Array<{ id: number; name: string; }>;
+  keywords?: Array<{ id: number; name: string; }>;
+  first_air_date?: string;
+  release_date?: string;
+  vote_average?: number;
+  vote_count?: number;
+  popularity?: number;
+  title?: string;
+  name?: string;
+  recommendations?: {
+    results: TMDBRecommendation[];
+  };
+}
+
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 
@@ -35,10 +73,10 @@ async function fetchMediaDetails(type: string, id: string, depth: number = 0) {
     const textContent = [
       details.overview,
       details.tagline,
-      ...(reviews.results || []).map(review => review.content),
+      ...(reviews.results || []).map((review: TMDBReview) => review.content),
       ...(translations.translations || [])
-        .filter(t => t.data?.overview)
-        .map(t => t.data.overview)
+        .filter((t: TMDBTranslation) => Boolean(t.data?.overview))
+        .map((t: TMDBTranslation) => t.data!.overview!)
     ].filter(Boolean).join(' ');
 
     // Extract potential patterns from text content
@@ -133,13 +171,13 @@ function analyzePatterns(text: string): string[] {
 }
 
 // Calculate similarity score between two items based on their metadata
-function calculateSimilarity(item1: any, item2: any) {
+function calculateSimilarity(item1: MediaItem, item2: MediaItem) {
   let score = 0;
   let weights = 0;
   let matchDetails = {
-    matchedKeywords: [],
-    matchedGenres: [],
-    matchedPatterns: [],
+    matchedKeywords: [] as Array<{ id: number; name: string; }>,
+    matchedGenres: [] as Array<{ id: number; name: string; }>,
+    matchedPatterns: [] as string[],
     yearDiff: 0,
     ratingDiff: 0,
     popularityFactor: 0
@@ -147,8 +185,9 @@ function calculateSimilarity(item1: any, item2: any) {
   
   // Pattern similarity (40%) - This is now our primary factor
   if (item1.patterns && item2.patterns) {
-    const matchedPatterns = item1.patterns.filter(p => item2.patterns.includes(p));
-    const patternScore = matchedPatterns.length / Math.max(item1.patterns.length, item2.patterns.length);
+    const patterns2 = item2.patterns; // Create a local reference
+    const matchedPatterns = item1.patterns.filter((p: string) => patterns2.includes(p));
+    const patternScore = matchedPatterns.length / Math.max(item1.patterns.length, patterns2.length);
     score += patternScore * 0.4;
     weights += 0.4;
     matchDetails.matchedPatterns = matchedPatterns;
@@ -156,10 +195,11 @@ function calculateSimilarity(item1: any, item2: any) {
 
   // Genre similarity (20%)
   if (item1.genres && item2.genres) {
+    const genres2 = item2.genres; // Create a local reference
     const matchedGenres = item1.genres.filter(g1 => 
-      item2.genres.some(g2 => g1.id === g2.id)
+      genres2.some(g2 => g1.id === g2.id)
     );
-    const genreScore = matchedGenres.length / Math.max(item1.genres.length, item2.genres.length);
+    const genreScore = matchedGenres.length / Math.max(item1.genres.length, genres2.length);
     score += genreScore * 0.2;
     weights += 0.2;
     matchDetails.matchedGenres = matchedGenres;
@@ -167,8 +207,9 @@ function calculateSimilarity(item1: any, item2: any) {
 
   // Keyword similarity (15%)
   if (item1.keywords && item2.keywords) {
+    const keywords2 = item2.keywords; // Create a local reference
     const matchedKeywords = item1.keywords.filter(k1 =>
-      item2.keywords.some(k2 => k1.id === k2.id)
+      keywords2.some(k2 => k1.id === k2.id)
     );
     const keywordScore = matchedKeywords.length / Math.max(1, Math.min(item1.keywords.length, 20));
     score += keywordScore * 0.15;
@@ -243,9 +284,9 @@ export async function GET(request: Request) {
 
     // For highly similar items, fetch their recommendations too (recommendation chain)
     const expandedRecommendations = await Promise.all(
-      uniqueRecommendations.slice(0, 5).map(async rec => {
+      uniqueRecommendations.slice(0, 5).map(async (rec: TMDBRecommendation) => {
         const details = await fetchMediaDetails(type, rec.id);
-        return details.recommendations.map(subRec => ({
+        return details.recommendations.map((subRec: TMDBRecommendation) => ({
           ...subRec,
           viaTitle: rec.title || rec.name
         }));
