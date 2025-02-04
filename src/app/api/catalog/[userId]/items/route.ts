@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 type Context = {
-  params: { userId: string };
+  params: Promise<{ userId: string }>;
 };
 
 export async function GET(
   request: NextRequest,
   context: Context
-) {
+): Promise<Response> {
   try {
-    const userId = context.params.userId;
+    const params = await context.params;
+    const userId = params.userId;
 
     // Initialize Supabase client with service role key
     const supabase = createClient(
