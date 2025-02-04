@@ -18,9 +18,9 @@ export async function GET() {
       }
     );
     
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (authError || !session?.user?.id) {
+    if (authError || !user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -30,7 +30,7 @@ export async function GET() {
     const { data: lists, error } = await supabase
       .from('lists')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .order('updated_at', { ascending: false });
 
     if (error) {
@@ -63,9 +63,9 @@ export async function POST(request: Request) {
       }
     );
     
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    if (authError || !session?.user?.id) {
+    if (authError || !user?.id) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
           name,
           description,
           items: [],
-          user_id: session.user.id,
+          user_id: user.id,
         }
       ])
       .select()

@@ -1,7 +1,9 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SupabaseProvider } from "@/components/providers/SupabaseProvider";
+import { ListsProvider } from '@/components/providers/ListsProvider';
 import { Navigation } from "./components/Navigation";
+import { Toaster } from '@/components/providers/ToastProvider';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,8 +31,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SupabaseProvider>
-          <Navigation />
-          {children}
+          <ListsProvider>
+            <Navigation />
+            {children}
+            <Toaster />
+          </ListsProvider>
         </SupabaseProvider>
       </body>
     </html>

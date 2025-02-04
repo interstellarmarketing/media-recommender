@@ -17,7 +17,12 @@ export async function GET(request: Request) {
 
     const response = await fetch(
       `${TMDB_BASE_URL}/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&include_adult=false`,
-      { next: { revalidate: 60 } } // Cache for 60 seconds
+      { 
+        next: { 
+          revalidate: 3600, // Cache for 1 hour
+          tags: [`search-${query}`] // Tag for selective revalidation
+        }
+      }
     );
 
     if (!response.ok) {
@@ -25,7 +30,24 @@ export async function GET(request: Request) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    
+    // Log search results for debugging
+    console.log('Search Results:', data.results.map((result: any) => ({
+      id: result.id,
+      title: result.title || result.name,
+      type: result.media_type,
+      poster_path: result.poster_path,
+      has_poster: !!result.poster_path
+    })));
+
+    // Add cache control headers for browser caching
+    const headers = new Headers({
+      'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+      'CDN-Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+      'Vercel-CDN-Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+    });
+
+    return NextResponse.json(data, { headers });
   } catch (error) {
     console.error('Search API Error:', error);
     return NextResponse.json(
