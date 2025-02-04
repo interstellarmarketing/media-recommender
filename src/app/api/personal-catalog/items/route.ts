@@ -84,6 +84,8 @@ export async function GET() {
       .from('personal_catalog')
       .select('*')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
+      .eq('pending_deletion', false)
       .order('added_at', { ascending: false });
 
     if (error) {
