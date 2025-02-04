@@ -5,6 +5,8 @@ import { CatalogGrid } from '@/components/CatalogGrid';
 import { MediaDetailModal } from '@/components/MediaDetailModal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { StarRating } from '@/components/StarRating';
+import { FilterMenu, type FilterState } from '@/components/FilterMenu';
+import { filterItems, sortItems, getAvailableGenres } from '@/lib/filter-utils';
 import type { MediaItem } from '@/types';
 
 interface PersonalCatalogItem extends MediaItem {
@@ -23,6 +25,15 @@ export default function SharedCatalogPage({ params }: PageProps) {
   const [isDetailModalOpen, setIsDetailModalOpen] = React.useState(false);
   const [userName, setUserName] = React.useState<string>('');
   const [userId, setUserId] = React.useState<string>('');
+
+  // Add filter state
+  const [filters, setFilters] = React.useState<FilterState>({
+    sortBy: 'date-desc',
+    genres: [],
+    mediaType: 'all',
+    minRating: null,
+    contentRating: null
+  });
 
   // Handle params resolution
   React.useEffect(() => {
@@ -71,6 +82,18 @@ export default function SharedCatalogPage({ params }: PageProps) {
     setIsDetailModalOpen(true);
   }, []);
 
+  // Apply filters and sorting
+  const filteredAndSortedItems = React.useMemo(() => {
+    const filtered = filterItems(items, filters);
+    return sortItems(filtered, filters.sortBy);
+  }, [items, filters]);
+
+  // Get available genres
+  const availableGenres = React.useMemo(() => 
+    getAvailableGenres(items),
+    [items]
+  );
+
   return (
     <ErrorBoundary>
       <main className="container mx-auto px-4 py-8">
@@ -81,9 +104,16 @@ export default function SharedCatalogPage({ params }: PageProps) {
           </p>
         </div>
 
+        {/* Filter Menu */}
+        <FilterMenu
+          filters={filters}
+          onFilterChange={setFilters}
+          availableGenres={availableGenres}
+        />
+
         {/* Catalog Grid */}
         <CatalogGrid
-          items={items}
+          items={filteredAndSortedItems}
           loading={loading}
           onItemClick={handleItemClick}
           error={error}
